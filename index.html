@@ -34,25 +34,59 @@
     MP.api.ready(function() {
       //Set global variables
       var propertyName = '',
-          numPeople = 0;
+          numPeople = 0,
+          totalProfiles = 0,
+          pageNum = 0,
+          nextPage = true,
+          output = [];
+          
+      //Function for pagination
+      function getProfiles(pageNum, sessionId, output){
+        MP.api.people({where: propertyName, page: pageNum, session_id: sessionId}).done(function(peopleProf) {
+          numPeople = Object.keys(peopleProf.values().results).length;
+          console.log(peopleProf.values());
+          if (numPeople == 1000) {
+            pageNum++;
+            output.push(peopleProf.values().results)
+            getProfiles(pageNum, sessionId, output)
+          } else { // ending iteration
+            output.push(peopleProf.values().results)
+            totalProfiles = (pageNum)*1000 + numPeople;
+            $('.confirm-text').html(
+              "Property: <strong>" + propertyName + 
+              "</strong><br># People profiles that match: <strong>" + totalProfiles + "</strong>")
+            .css("color", "rgb(95,105,131)");
+            debugger;
+            runQuery(output);
+          }; 
+        })
+      };
+          
+          
       //Record selector for profiles
       $('#property').submit(function(e) {
         e.preventDefault();
         propertyName = $('#property input:first').val();
         
-        //Query People profiles
-        MP.api.people({where: propertyName}).done(function(results) {
+        //Building out profiles  
+        MP.api.people({where: propertyName, page: 0}).done(function(results) {
+          var sessionId = results.values()['session_id'];
           numPeople = Object.keys(results.values().results).length;
           if (numPeople == 1000) {
-            numPeople = "1000+";
-          };
-          $('.confirm-text')
-            .html(
+            pageNum++;
+            output = [results.values().results];
+            console.log(output);
+            getProfiles(pageNum, sessionId, output)
+          } else {
+            output = [results.values().results];
+            totalProfiles = numPeople
+            $('.confirm-text').html(
               "Property: <strong>" + propertyName + 
-              "</strong><br># People profiles that match: <strong>" + numPeople + "</strong>")
+              "</strong><br># People profiles that match: <strong>" + totalProfiles + "</strong>")
             .css("color", "rgb(95,105,131)");
-            console.log(results.values()["results"])
-          runQuery(results.values()["results"]);
+            debugger;
+            runQuery(output);
+          }; 
         }).fail(function() {
           $('.confirm-text')
             .html("Error: Please enter a valid property selector.")
@@ -83,8 +117,8 @@
             } catch (e) {}
           });
         });
-        return subkeys
-      }  
+        return subkeys;
+      };  
       
       function JSONToCSVConvertor(JSONData, ReportTitle) {
         //If JSONData is not an object then JSON.parse will parse the JSON string in an Object
@@ -93,10 +127,12 @@
         
         //Create list of profiles
         var event_list = [];
-        _.each(_.keys(data), function(profileIndex){
-          var profileData = data[profileIndex];
+        for (i = 0; i < JSONData.length; i++) {
+          _.each(_.keys(data[i]), function(profileIndex){
+          var profileData = data[i][profileIndex];
           event_list.push(profileData)
-        });
+          });
+        };
         
         //Write the header with people properties
         subkeys = getSubKeys(event_list)
@@ -128,9 +164,7 @@
             //if (data.indexOf(',') > -1) 
           });
           CSV += row + '\r\n';
-        })
-        
-        
+        });
         
           
         //Generate a file name
@@ -159,11 +193,8 @@
         
       };
       
-      
-    });
-      
-      // set functions to run when dropdowns change
-      
+      });
+
     </script>
   </body>
 </html>
